@@ -2,11 +2,12 @@ package vals
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/variantdev/vals/pkg/awsclicompat"
-	config2 "github.com/variantdev/vals/pkg/config"
-	"testing"
+	"github.com/kroonprins/vals/pkg/awsclicompat"
+	config2 "github.com/kroonprins/vals/pkg/config"
 )
 
 func TestValues_AWSSecrets_String(t *testing.T) {

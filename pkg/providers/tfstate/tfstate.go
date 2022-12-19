@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/variantdev/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/api"
 
 	"github.com/fujiwara/tfstate-lookup/tfstate"
 )

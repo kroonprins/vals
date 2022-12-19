@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/variantdev/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/api"
 	"gopkg.in/yaml.v3"
 )
 

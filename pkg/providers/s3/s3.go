@@ -2,15 +2,16 @@ package s3
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/awsclicompat"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/awsclicompat"
+	"gopkg.in/yaml.v3"
 )
 
 type provider struct {

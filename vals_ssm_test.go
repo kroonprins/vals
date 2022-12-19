@@ -2,8 +2,9 @@ package vals
 
 import (
 	"fmt"
-	config2 "github.com/variantdev/vals/pkg/config"
 	"testing"
+
+	config2 "github.com/kroonprins/vals/pkg/config"
 )
 
 func TestValues_SSM_String(t *testing.T) {

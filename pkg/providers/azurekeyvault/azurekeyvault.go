@@ -3,12 +3,13 @@ package azurekeyvault
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets"
 	"strings"
 
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/azureclicompat"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets"
+
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/azureclicompat"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,6 +29,9 @@ func (p *provider) GetString(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if strings.TrimSpace(spec.secretName) == "" {
+		return "", fmt.Errorf("missing secret name: %q", key)
+	}
 
 	client, err := p.getClientForKeyVault(spec.vaultBaseURL)
 	if err != nil {
@@ -42,17 +46,50 @@ func (p *provider) GetString(key string) (string, error) {
 }
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-	m := map[string]interface{}{}
-	yamlStr, err := p.GetString(key)
+	spec, err := parseKey(key)
 	if err != nil {
 		return nil, err
 	}
+	if spec.secretName != "" {
+		m := map[string]interface{}{}
+		yamlStr, err := p.GetString(key)
+		if err != nil {
+			return nil, err
+		}
 
-	err = yaml.Unmarshal([]byte(yamlStr), &m)
-	if err != nil {
-		return nil, fmt.Errorf("error while parsing secret for key %q as yaml: %v", key, err)
+		err = yaml.Unmarshal([]byte(yamlStr), &m)
+		if err != nil {
+			return nil, fmt.Errorf("error while parsing secret for key %q as yaml: %v", key, err)
+		}
+		return m, nil
+	} else {
+		client, err := p.getClientForKeyVault(spec.vaultBaseURL)
+		if err != nil {
+			return nil, err
+		}
+
+		mp := make(map[string]interface{})
+		pager := client.NewListSecretsPager(&azsecrets.ListSecretsOptions{})
+
+		for pager.More() {
+			page, err := pager.NextPage(context.Background())
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve secrets from vault '%s': %v", spec.vaultBaseURL, err)
+			}
+			for _, secret := range page.Value {
+				if secret.Managed != nil && *secret.Managed {
+					continue
+				}
+				secretVal, err := p.GetString(fmt.Sprintf("%s/%s", key, secret.ID.Name()))
+				if err != nil {
+					return nil, err
+				}
+				mp[secret.ID.Name()] = secretVal
+			}
+		}
+
+		return mp, nil
 	}
-	return m, nil
 }
 
 func (p *provider) getClientForKeyVault(vaultBaseURL string) (*azsecrets.Client, error) {
@@ -65,8 +102,12 @@ func (p *provider) getClientForKeyVault(vaultBaseURL string) (*azsecrets.Client,
 		return nil, err
 	}
 
-	p.clients[vaultBaseURL] = azsecrets.NewClient(vaultBaseURL, cred, nil)
-	return p.clients[vaultBaseURL], nil
+	client, err := azsecrets.NewClient(vaultBaseURL, cred, nil)
+	if err != nil {
+		return nil, err
+	}
+	p.clients[vaultBaseURL] = client
+	return client, nil
 }
 
 func getTokenCredential() (azcore.TokenCredential, error) {
@@ -86,7 +127,7 @@ type secretSpec struct {
 
 func parseKey(key string) (spec secretSpec, err error) {
 	components := strings.Split(strings.TrimSuffix(key, "/"), "/")
-	if len(components) < 2 || len(components) > 3 {
+	if len(components) < 1 || len(components) > 3 {
 		err = fmt.Errorf("invalid secret specifier: %q", key)
 		return
 	}
@@ -96,13 +137,10 @@ func parseKey(key string) (spec secretSpec, err error) {
 		return
 	}
 
-	if strings.TrimSpace(components[1]) == "" {
-		err = fmt.Errorf("missing secret name: %q", key)
-		return
-	}
-
 	spec.vaultBaseURL = makeEndpoint(components[0])
-	spec.secretName = components[1]
+	if len(components) > 1 {
+		spec.secretName = components[1]
+	}
 	if len(components) > 2 {
 		spec.secretVersion = components[2]
 	}

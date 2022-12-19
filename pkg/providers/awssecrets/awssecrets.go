@@ -3,11 +3,12 @@ package awssecrets
 import (
 	"errors"
 	"fmt"
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/awsclicompat"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
+
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/awsclicompat"
+	"gopkg.in/yaml.v3"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"

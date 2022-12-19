@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/variantdev/vals"
+	"github.com/kroonprins/vals"
 	"gopkg.in/yaml.v3"
 )
 

@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/variantdev/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/api"
 )
 
 type MapConfig struct {
@@ -140,8 +140,6 @@ func (m MapConfig) Map(path ...string) map[string]interface{} {
 	default:
 		return nil
 	}
-
-	panic("invalid state")
 }
 
 func Map(m map[string]interface{}) MapConfig {

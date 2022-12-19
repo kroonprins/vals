@@ -8,28 +8,48 @@ import (
 
 func ModifyStringValues(v interface{}, f func(path string) (interface{}, error)) (interface{}, error) {
 	merge := func(strmap map[string]interface{}, k string, opts interface{}) (bool, error) {
-		switch opts.(type) {
-		case map[string]interface{}, map[interface{}]interface{}:
-		default:
-			return false, nil
-		}
-
 		k2, err := ModifyStringValues(k, f)
 		if err != nil {
 			return false, err
 		}
-		switch yamlOrJson := k2.(type) {
+		switch typed_k2 := k2.(type) {
 		case string:
-			if yamlOrJson == k {
+			if typed_k2 == k {
 				break
 			}
 			m := map[string]interface{}{}
-			if err := yaml.Unmarshal([]byte(yamlOrJson), &m); err != nil {
-				return false, err
+			if err := yaml.Unmarshal([]byte(typed_k2), &m); err != nil {
+				modifiedOpts, err := ModifyStringValues(opts, f)
+				if err != nil {
+					return false, err
+				}
+				strmap[typed_k2] = modifiedOpts
+			} else {
+				for mk, mv := range m {
+					modifiedMv, err := ModifyStringValues(mv, f)
+					if err != nil {
+						return false, err
+					}
+					strmap[mk] = modifiedMv
+				}
 			}
-			// opts := v
-			for mk, mv := range m {
-				strmap[mk] = mv
+			return true, nil
+		case map[string]interface{}:
+			for mk, mv := range typed_k2 {
+				modifiedMv, err := ModifyStringValues(mv, f)
+				if err != nil {
+					return false, err
+				}
+				strmap[mk] = modifiedMv
+			}
+			return true, nil
+		case map[interface{}]interface{}:
+			for mk, mv := range typed_k2 {
+				modifiedMv, err := ModifyStringValues(mv, f)
+				if err != nil {
+					return false, err
+				}
+				strmap[fmt.Sprintf("%v", mk)] = modifiedMv
 			}
 			return true, nil
 		}
@@ -39,7 +59,16 @@ func ModifyStringValues(v interface{}, f func(path string) (interface{}, error))
 	var casted_v interface{}
 	switch typed_v := v.(type) {
 	case string:
-		return f(typed_v)
+		modified, err := f(typed_v)
+		if err != nil {
+			return nil, err
+		}
+		switch modified.(type) {
+		case string:
+			return modified, err
+		default:
+			return ModifyStringValues(modified, f)
+		}
 	case map[interface{}]interface{}:
 		strmap := map[string]interface{}{}
 		for k, v := range typed_v {
@@ -79,6 +108,9 @@ func ModifyStringValues(v interface{}, f func(path string) (interface{}, error))
 				deleted = append(deleted, k)
 				continue
 			}
+			if err != nil {
+				return nil, err
+			}
 
 			v2, err := ModifyStringValues(v, f)
 			if err != nil {
@@ -106,7 +138,7 @@ func ModifyStringValues(v interface{}, f func(path string) (interface{}, error))
 	case []string:
 		a := []interface{}{}
 		for i := range typed_v {
-			res, err := f(typed_v[i])
+			res, err := ModifyStringValues(typed_v[i], f)
 			if err != nil {
 				return nil, err
 			}

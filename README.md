@@ -1,3 +1,43 @@
+# note
+
+Fork of [vals](https://github.com/variantdev/vals) that adds the possiblity to use a '*' in the uri fragment and expand it in the resulting yaml/json.
+
+E.g.
+
+```yaml
+# file: test.yml
+a: b
+c:
+  d: e
+```
+
+```shell
+$ cat <<EOF | ./vals eval -f -
+# existing behavior of vals:
+string: ref+file://test.yml
+one_field: ref+file://test.yml#/c/d
+# added functionality:
+expanded: ref+file://test.yml#/*
+partly_expanded: ref+file://test.yml#/c/*
+EOF
+```
+
+Gives:
+```yaml
+string: |-
+  a: b
+  c:
+    d: e
+one_field: e
+expanded:
+  a: b
+  c:
+    d: e
+partly_expanded:
+  d: e
+```
+
+
 # vals
 
 `vals` is a tool for managing configuration values and secrets.

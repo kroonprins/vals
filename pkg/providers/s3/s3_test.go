@@ -3,14 +3,15 @@ package s3
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"strings"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/google/go-cmp/cmp"
-	"github.com/variantdev/vals/pkg/config"
-	"io/ioutil"
-	"strings"
-	"testing"
+	"github.com/kroonprins/vals/pkg/config"
 )
 
 type mockedS3 struct {

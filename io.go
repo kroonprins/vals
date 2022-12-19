@@ -22,7 +22,7 @@ func Inputs(f string) ([]yaml.Node, error) {
 		reader = fp
 		defer fp.Close()
 	} else {
-		return nil, fmt.Errorf("Nothing to eval: No file specified")
+		return nil, fmt.Errorf("nothing to eval: No file specified")
 	}
 	return nodesFromReader(reader)
 }

@@ -3,18 +3,18 @@ package stringprovider
 import (
 	"fmt"
 
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/providers/awskms"
-	"github.com/variantdev/vals/pkg/providers/awssecrets"
-	"github.com/variantdev/vals/pkg/providers/azurekeyvault"
-	"github.com/variantdev/vals/pkg/providers/gcpsecrets"
-	"github.com/variantdev/vals/pkg/providers/gcs"
-	"github.com/variantdev/vals/pkg/providers/s3"
-	"github.com/variantdev/vals/pkg/providers/sops"
-	"github.com/variantdev/vals/pkg/providers/ssm"
-	"github.com/variantdev/vals/pkg/providers/tfstate"
-	"github.com/variantdev/vals/pkg/providers/vault"
-	"github.com/variantdev/vals/pkg/providers/gitlab"
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/providers/awskms"
+	"github.com/kroonprins/vals/pkg/providers/awssecrets"
+	"github.com/kroonprins/vals/pkg/providers/azurekeyvault"
+	"github.com/kroonprins/vals/pkg/providers/gcpsecrets"
+	"github.com/kroonprins/vals/pkg/providers/gcs"
+	"github.com/kroonprins/vals/pkg/providers/gitlab"
+	"github.com/kroonprins/vals/pkg/providers/s3"
+	"github.com/kroonprins/vals/pkg/providers/sops"
+	"github.com/kroonprins/vals/pkg/providers/ssm"
+	"github.com/kroonprins/vals/pkg/providers/tfstate"
+	"github.com/kroonprins/vals/pkg/providers/vault"
 )
 
 func New(provider api.StaticConfig) (api.LazyLoadedStringProvider, error) {

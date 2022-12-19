@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/awsclicompat"
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/awsclicompat"
 	"gopkg.in/yaml.v3"
 
 	"github.com/aws/aws-sdk-go/aws"

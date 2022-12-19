@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/variantdev/vals/pkg/config"
+	"github.com/kroonprins/vals/pkg/config"
 )
 
 // setup:

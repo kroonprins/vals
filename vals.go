@@ -10,28 +10,28 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/variantdev/vals/pkg/config"
-	"github.com/variantdev/vals/pkg/providers/googlesheets"
-	"github.com/variantdev/vals/pkg/providers/s3"
+	"github.com/kroonprins/vals/pkg/config"
+	"github.com/kroonprins/vals/pkg/providers/googlesheets"
+	"github.com/kroonprins/vals/pkg/providers/s3"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/variantdev/vals/pkg/api"
-	"github.com/variantdev/vals/pkg/expansion"
-	"github.com/variantdev/vals/pkg/providers/awskms"
-	"github.com/variantdev/vals/pkg/providers/awssecrets"
-	"github.com/variantdev/vals/pkg/providers/azurekeyvault"
-	"github.com/variantdev/vals/pkg/providers/echo"
-	"github.com/variantdev/vals/pkg/providers/envsubst"
-	"github.com/variantdev/vals/pkg/providers/file"
-	"github.com/variantdev/vals/pkg/providers/gcpsecrets"
-	"github.com/variantdev/vals/pkg/providers/gcs"
-	"github.com/variantdev/vals/pkg/providers/gitlab"
-	"github.com/variantdev/vals/pkg/providers/sops"
-	"github.com/variantdev/vals/pkg/providers/ssm"
-	"github.com/variantdev/vals/pkg/providers/tfstate"
-	"github.com/variantdev/vals/pkg/providers/vault"
-	"github.com/variantdev/vals/pkg/stringmapprovider"
-	"github.com/variantdev/vals/pkg/stringprovider"
+	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/expansion"
+	"github.com/kroonprins/vals/pkg/providers/awskms"
+	"github.com/kroonprins/vals/pkg/providers/awssecrets"
+	"github.com/kroonprins/vals/pkg/providers/azurekeyvault"
+	"github.com/kroonprins/vals/pkg/providers/echo"
+	"github.com/kroonprins/vals/pkg/providers/envsubst"
+	"github.com/kroonprins/vals/pkg/providers/file"
+	"github.com/kroonprins/vals/pkg/providers/gcpsecrets"
+	"github.com/kroonprins/vals/pkg/providers/gcs"
+	"github.com/kroonprins/vals/pkg/providers/gitlab"
+	"github.com/kroonprins/vals/pkg/providers/sops"
+	"github.com/kroonprins/vals/pkg/providers/ssm"
+	"github.com/kroonprins/vals/pkg/providers/tfstate"
+	"github.com/kroonprins/vals/pkg/providers/vault"
+	"github.com/kroonprins/vals/pkg/stringmapprovider"
+	"github.com/kroonprins/vals/pkg/stringprovider"
 	"gopkg.in/yaml.v3"
 )
 
@@ -250,13 +250,9 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 	expand := expansion.ExpandRegexMatch{
 		Only:   only,
 		Target: expansion.DefaultRefRegexp,
-		Lookup: func(key string) (string, error) {
-			if val, ok := r.docCache.Get(key); ok {
-				valStr, ok := val.(string)
-				if !ok {
-					return "", fmt.Errorf("error reading string from cache: unsupported value type %T", val)
-				}
-				return valStr, nil
+		Lookup: func(key string) (interface{}, error) {
+			if val, ok := r.strCache.Get(key); ok {
+				return val, nil
 			}
 
 			uri, err := url.Parse(key)
@@ -337,6 +333,13 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 
 				keys := strings.Split(frag, "/")
 				for i, k := range keys {
+					if k == "*" {
+						if i != len(keys)-1 {
+							return nil, fmt.Errorf("star can only be used at the end of fragment")
+						}
+						r.docCache.Add(key, obj)
+						return obj, nil
+					}
 					newobj := map[string]interface{}{}
 					switch t := obj[k].(type) {
 					case string:
@@ -657,7 +660,7 @@ func Load(conf api.StaticConfig, opt ...Option) (map[string]interface{}, error) 
 		}
 		var res interface{}
 		if len(keymap) == 0 {
-			built := map[string]interface{}{}
+			var built map[string]interface{}
 			if len(keys) > 0 {
 				built, err = buildMapFromKeys(keys)
 				if err != nil {
