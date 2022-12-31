@@ -15,6 +15,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/vault/api v1.0.4
+	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b5
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 	google.golang.org/api v0.95.0

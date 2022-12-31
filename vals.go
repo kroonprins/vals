@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/kroonprins/vals/pkg/config"
+	"github.com/kroonprins/vals/pkg/providers/azuredevopsgit"
 	"github.com/kroonprins/vals/pkg/providers/googlesheets"
 	"github.com/kroonprins/vals/pkg/providers/s3"
 
@@ -77,6 +78,7 @@ const (
 	ProviderTFStateRemote    = "tfstateremote"
 	ProviderAzureKeyVault    = "azurekeyvault"
 	ProviderEnvSubst         = "envsubst"
+	ProviderAzureDevOpsGit   = "azuredevopsgit"
 )
 
 var (
@@ -218,6 +220,9 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 			return p, nil
 		case ProviderEnvSubst:
 			p := envsubst.New(conf)
+			return p, nil
+		case ProviderAzureDevOpsGit:
+			p := azuredevopsgit.New(conf)
 			return p, nil
 		}
 		return nil, fmt.Errorf("no provider registered for scheme %q", scheme)
