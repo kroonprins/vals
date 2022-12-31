@@ -2,8 +2,12 @@ package expansion
 
 import (
 	"fmt"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type ExpandRegexMatch struct {
@@ -12,7 +16,7 @@ type ExpandRegexMatch struct {
 	Only   []string
 }
 
-var DefaultRefRegexp = regexp.MustCompile(`((secret)?ref)\+([^\+:]*://[^\+]+)\+?`)
+var DefaultRefRegexp = regexp.MustCompile(`((secret)?(ref|fileref))\+([^\+:]*://[^\+]+)\+?`)
 
 func (e *ExpandRegexMatch) InString(s string) (interface{}, error) {
 	var sb strings.Builder
@@ -37,26 +41,38 @@ func (e *ExpandRegexMatch) InString(s string) (interface{}, error) {
 				break
 			}
 		}
-		ref := s[ixs[6]:ixs[7]]
+		ref := s[ixs[8]:ixs[9]]
 		val, err := e.Lookup(ref)
 		if err != nil {
 			return nil, fmt.Errorf("expand %s: %v", ref, err)
 		}
 
-		switch typed_val := val.(type) {
-		case string:
-			sb.WriteString(s[:ixs[0]])
-			sb.WriteString(typed_val)
-		case map[string]interface{}:
-			for k, v := range typed_val {
-				res[k] = v
+		if s[ixs[6]:ixs[7]] == "fileref" {
+			fileRefTarget, err := getFileRefTarget(ref)
+			if err != nil {
+				return nil, err
 			}
-		case map[interface{}]interface{}:
-			for k, v := range typed_val {
-				res[fmt.Sprintf("%v", k)] = v
+			sb.WriteString(fileRefTarget)
+			err = writeFile(fileRefTarget, val)
+			if err != nil {
+				return nil, fmt.Errorf("error writing file %s: %v", fileRefTarget, err)
 			}
-		default:
-			return nil, fmt.Errorf("unexpected output format for %s: %v", ref, err)
+		} else {
+			switch typed_val := val.(type) {
+			case string:
+				sb.WriteString(s[:ixs[0]])
+				sb.WriteString(typed_val)
+			case map[string]interface{}:
+				for k, v := range typed_val {
+					res[k] = v
+				}
+			case map[interface{}]interface{}:
+				for k, v := range typed_val {
+					res[fmt.Sprintf("%v", k)] = v
+				}
+			default:
+				return nil, fmt.Errorf("unexpected output format for %s: %#v", ref, val)
+			}
 		}
 
 		s = s[ixs[1]:]
@@ -90,4 +106,34 @@ func (e *ExpandRegexMatch) InMap(target map[string]interface{}) (map[string]inte
 	default:
 		return nil, fmt.Errorf("unexpected type: %v: %T", ret, ret)
 	}
+}
+
+func getFileRefTarget(s string) (string, error) {
+	uri, err := url.Parse(s)
+	if err != nil {
+		return "", err
+	}
+	queryParams := uri.Query()
+	if !queryParams.Has("fileref_target") {
+		return "", fmt.Errorf("fileref requires a query parameter 'fileref_target': %s", s)
+	}
+	return queryParams.Get("fileref_target"), nil
+}
+
+func writeFile(fileTargetRef string, val interface{}) error {
+	var data []byte
+	switch typed_val := val.(type) {
+	case string:
+		data = []byte(typed_val)
+	case map[string]interface{}:
+		bytes, err := yaml.Marshal(typed_val)
+		if err != nil {
+			return err
+		}
+		data = bytes
+	default:
+		return fmt.Errorf("unexpected output format: %#v", val)
+	}
+
+	return os.WriteFile(fileTargetRef, data, 0666)
 }
