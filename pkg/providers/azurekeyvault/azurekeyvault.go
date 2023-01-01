@@ -10,18 +10,20 @@ import (
 
 	"github.com/kroonprins/vals/pkg/api"
 	"github.com/kroonprins/vals/pkg/azureclicompat"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 	// azure key vault client
 	clients map[string]*azsecrets.Client
 }
 
 func New(cfg api.StaticConfig) *provider {
-	p := &provider{}
-	p.clients = make(map[string]*azsecrets.Client)
-	return p
+	return &provider{
+		StaticConfig: cfg,
+		clients:      make(map[string]*azsecrets.Client),
+	}
 }
 
 func (p *provider) GetString(key string) (string, error) {
@@ -51,17 +53,12 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	if spec.secretName != "" {
-		m := map[string]interface{}{}
-		yamlStr, err := p.GetString(key)
+		str, err := p.GetString(key)
 		if err != nil {
 			return nil, err
 		}
 
-		err = yaml.Unmarshal([]byte(yamlStr), &m)
-		if err != nil {
-			return nil, fmt.Errorf("error while parsing secret for key %q as yaml: %v", key, err)
-		}
-		return m, nil
+		return util.Unmarshal(p.StaticConfig, []byte(str))
 	} else {
 		client, err := p.getClientForKeyVault(spec.vaultBaseURL)
 		if err != nil {

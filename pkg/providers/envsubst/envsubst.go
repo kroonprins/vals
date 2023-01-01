@@ -5,14 +5,17 @@ import (
 
 	envSubst "github.com/a8m/envsubst"
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 }
 
 func New(cfg api.StaticConfig) *provider {
-	p := &provider{}
+	p := &provider{
+		cfg,
+	}
 	return p
 }
 
@@ -36,9 +39,5 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-	if err := yaml.Unmarshal(bs, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, bs)
 }

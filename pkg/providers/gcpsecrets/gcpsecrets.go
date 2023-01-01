@@ -9,12 +9,13 @@ import (
 
 	sm "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/kroonprins/vals/pkg/api"
+	"github.com/kroonprins/vals/pkg/providers/util"
 	smpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
-	"gopkg.in/yaml.v3"
 )
 
 // Format: ref+gcpsecrets://project/mykey[?version=VERSION][&fallback=value=valuewhenkeyisnotfound][&optional=true]#/yaml_or_json_key/in/secret
 type provider struct {
+	api.StaticConfig
 	client   *sm.Client
 	ctx      context.Context
 	version  string
@@ -26,8 +27,9 @@ func New(cfg api.StaticConfig) *provider {
 	ctx := context.Background()
 
 	p := &provider{
-		ctx:      ctx,
-		optional: false,
+		StaticConfig: cfg,
+		ctx:          ctx,
+		optional:     false,
 	}
 
 	version := cfg.String("version")
@@ -67,11 +69,7 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var secretMap map[string]interface{}
-	if err := yaml.Unmarshal(secret, &secretMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secret: %w", err)
-	}
-	return secretMap, nil
+	return util.Unmarshal(p.StaticConfig, secret)
 }
 
 func (p *provider) getSecret(ctx context.Context, key string) ([]byte, error) {

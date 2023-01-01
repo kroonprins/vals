@@ -6,12 +6,13 @@ import (
 	"os"
 
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 
 	"go.mozilla.org/sops/v3/decrypt"
 )
 
 type provider struct {
+	api.StaticConfig
 	// KeyType is either "filepath"(default) or "base64".
 	KeyType string
 	// Format is --input-type of sops
@@ -20,6 +21,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Format = cfg.String("format")
 	p.KeyType = cfg.String("key_type")
 	if p.KeyType == "" {
@@ -43,9 +45,8 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	res := map[string]interface{}{}
-
-	if err := yaml.Unmarshal(cleartext, &res); err != nil {
+	res, err := util.Unmarshal(p.StaticConfig, cleartext)
+	if err != nil {
 		return nil, err
 	}
 

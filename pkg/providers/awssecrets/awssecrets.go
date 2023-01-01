@@ -8,13 +8,14 @@ import (
 
 	"github.com/kroonprins/vals/pkg/api"
 	"github.com/kroonprins/vals/pkg/awsclicompat"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
 type provider struct {
+	api.StaticConfig
 	// Keeping track of secretsmanager services since we need a service per region
 	client *secretsmanager.SecretsManager
 
@@ -26,6 +27,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Region = cfg.String("region")
 	p.VersionStage = cfg.String("version_stage")
 	p.VersionId = cfg.String("version_id")
@@ -70,25 +72,20 @@ func (p *provider) GetString(key string) (string, error) {
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 
-	yamlStr, err := p.GetString(key)
+	str, err := p.GetString(key)
 	if err == nil {
-		m := map[string]interface{}{}
-		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
-			return nil, fmt.Errorf("error while parsing secret for key %q as yaml: %v", key, err)
-		}
-		return m, nil
+		return util.Unmarshal(p.StaticConfig, []byte(str))
 	}
-
-	meta := map[string]interface{}{}
 
 	metaKey := strings.TrimRight(key, "/") + "/meta"
 
-	str, err := p.GetString(metaKey)
+	str, err = p.GetString(metaKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := yaml.Unmarshal([]byte(str), &meta); err != nil {
+	meta, err := util.Unmarshal(p.StaticConfig, []byte(str))
+	if err != nil {
 		return nil, err
 	}
 
@@ -101,9 +98,7 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 	var suffixes []string
 	switch f := f.(type) {
 	case []string:
-		for _, v := range f {
-			suffixes = append(suffixes, v)
-		}
+		suffixes = append(suffixes, f...)
 	case []interface{}:
 		for _, v := range f {
 			suffixes = append(suffixes, fmt.Sprintf("%v", v))

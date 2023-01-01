@@ -3,7 +3,7 @@ package gcs
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 
 	"cloud.google.com/go/storage"
@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 	Generation string
 
 	client *storage.Client
@@ -25,6 +26,7 @@ type provider struct {
 // New creates a new GCS provider
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Generation = cfg.String("generation")
 
 	return p
@@ -83,7 +85,7 @@ func (p *provider) GetString(key string) (string, error) {
 
 	defer rc.Close()
 
-	slurp, err := ioutil.ReadAll(rc)
+	slurp, err := io.ReadAll(rc)
 	if err != nil {
 		return "", err
 	}
@@ -93,19 +95,13 @@ func (p *provider) GetString(key string) (string, error) {
 
 // Convert yaml to map interface and return the requested keys
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-	yamlData, err := p.GetString(key)
+	data, err := p.GetString(key)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-
-	if err := yaml.Unmarshal([]byte(yamlData), &m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, []byte(data))
 }
 
 // Check is versioning is enabled in the bucket

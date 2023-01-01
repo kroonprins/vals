@@ -10,13 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/kroonprins/vals/pkg/api"
 	"github.com/kroonprins/vals/pkg/awsclicompat"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
 type provider struct {
+	api.StaticConfig
 	// Keeping track of SSM services since we need a SSM service per region
 	ssmClient ssmiface.SSMAPI
 
@@ -30,6 +31,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Region = cfg.String("region")
 	p.Version = cfg.String("version")
 	p.Profile = cfg.String("profile")
@@ -119,18 +121,12 @@ func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 	}
 
 	if p.Mode == "singleparam" {
-		yamlData, err := p.GetString(key)
+		data, err := p.GetString(key)
 		if err != nil {
 			return nil, err
 		}
 
-		m := map[string]interface{}{}
-
-		if err := yaml.Unmarshal([]byte(yamlData), &m); err != nil {
-			return nil, err
-		}
-
-		return m, nil
+		return util.Unmarshal(p.StaticConfig, []byte(data))
 	}
 
 	ssmClient := p.getSSMClient()

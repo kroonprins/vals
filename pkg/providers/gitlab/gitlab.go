@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type gitlabSecret struct {
@@ -23,6 +23,7 @@ type gitlabSecret struct {
 }
 
 type provider struct {
+	api.StaticConfig
 	Scheme     string
 	SSLVerify  bool
 	APIVersion string
@@ -30,6 +31,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Scheme = cfg.String("scheme")
 	if p.Scheme == "" {
 		p.Scheme = "https"
@@ -55,7 +57,7 @@ func (p *provider) GetString(key string) (string, error) {
 	splits := strings.Split(key, "/")
 	gitlabToken, ok := os.LookupEnv("GITLAB_TOKEN")
 	if !ok {
-		return "", errors.New("Missing GITLAB_TOKEN environment variable")
+		return "", errors.New("missing GITLAB_TOKEN environment variable")
 	}
 
 	url := fmt.Sprintf("%s://%s/api/%s/projects/%s/variables/%s",
@@ -94,17 +96,10 @@ func (p *provider) GetString(key string) (string, error) {
 }
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-
-	secretMap := map[string]interface{}{}
-
 	secretString, err := p.GetString(key)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := yaml.Unmarshal([]byte(secretString), secretMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secret: %w", err)
-	}
-
-	return secretMap, nil
+	return util.Unmarshal(p.StaticConfig, []byte(secretString))
 }

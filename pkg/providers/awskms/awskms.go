@@ -2,17 +2,17 @@ package awskms
 
 import (
 	"encoding/base64"
-	"fmt"
-	"os"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/kroonprins/vals/pkg/api"
 	"github.com/kroonprins/vals/pkg/awsclicompat"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 	// Keeping track of KMS services since we need a service per region
 	client *kms.KMS
 
@@ -22,6 +22,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Region = cfg.String("region")
 	p.Profile = cfg.String("profile")
 	p.KeyId = cfg.String("key")
@@ -69,18 +70,12 @@ func (p *provider) GetString(key string) (string, error) {
 }
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-	yamlData, err := p.GetString(key)
+	data, err := p.GetString(key)
 	if err != nil {
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-
-	if err := yaml.Unmarshal([]byte(yamlData), &m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, []byte(data))
 }
 
 func (p *provider) getClient() *kms.KMS {
@@ -94,6 +89,6 @@ func (p *provider) getClient() *kms.KMS {
 	return p.client
 }
 
-func (p *provider) debugf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-}
+// func (p *provider) debugf(msg string, args ...interface{}) {
+// 	fmt.Fprintf(os.Stderr, msg+"\n", args...)
+// }

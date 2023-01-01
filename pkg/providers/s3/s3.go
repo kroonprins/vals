@@ -2,7 +2,7 @@ package s3
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -11,10 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/kroonprins/vals/pkg/api"
 	"github.com/kroonprins/vals/pkg/awsclicompat"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 	// Keeping track of s3 services since we need a s3 service per region
 	s3Client s3iface.S3API
 
@@ -27,6 +28,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	p := &provider{}
+	p.StaticConfig = cfg
 	p.Region = cfg.String("region")
 	p.Version = cfg.String("version")
 	if p.Version == "" {
@@ -60,7 +62,7 @@ func (p *provider) GetString(key string) (string, error) {
 
 	p.debugf("s3: successfully retrieved object for key=%s", key)
 
-	all, err := ioutil.ReadAll(out.Body)
+	all, err := io.ReadAll(out.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading s3 object body: %w", err)
 	}
@@ -69,18 +71,12 @@ func (p *provider) GetString(key string) (string, error) {
 }
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-	yamlData, err := p.GetString(key)
+	data, err := p.GetString(key)
 	if err != nil {
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-
-	if err := yaml.Unmarshal([]byte(yamlData), &m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, []byte(data))
 }
 
 func (p *provider) debugf(msg string, args ...interface{}) {

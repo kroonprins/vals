@@ -11,10 +11,11 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/git"
 
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 	client git.Client
 
 	organization string
@@ -26,6 +27,7 @@ type provider struct {
 
 func New(cfg api.StaticConfig) *provider {
 	return &provider{
+		StaticConfig: cfg,
 		organization: cfg.String("organization"),
 		project:      cfg.String("project"),
 		repository:   cfg.String("repository"),
@@ -81,17 +83,12 @@ func (p *provider) GetString(key string) (string, error) {
 }
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
-	m := map[string]interface{}{}
-	yamlStr, err := p.GetString(key)
+	str, err := p.GetString(key)
 	if err != nil {
 		return nil, err
 	}
 
-	err = yaml.Unmarshal([]byte(yamlStr), &m)
-	if err != nil {
-		return nil, fmt.Errorf("error while parsing file for key %q as yaml: %v", key, err)
-	}
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, []byte(str))
 }
 
 func (p *provider) ensureClient() (git.Client, error) {

@@ -1,24 +1,27 @@
 package file
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/kroonprins/vals/pkg/api"
-	"gopkg.in/yaml.v3"
+	"github.com/kroonprins/vals/pkg/providers/util"
 )
 
 type provider struct {
+	api.StaticConfig
 }
 
 func New(cfg api.StaticConfig) *provider {
-	p := &provider{}
+	p := &provider{
+		cfg,
+	}
 	return p
 }
 
 func (p *provider) GetString(key string) (string, error) {
 	key = strings.TrimSuffix(key, "/")
-	bs, err := ioutil.ReadFile(key)
+	bs, err := os.ReadFile(key)
 	if err != nil {
 		return "", err
 	}
@@ -27,14 +30,10 @@ func (p *provider) GetString(key string) (string, error) {
 
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 	key = strings.TrimSuffix(key, "/")
-	bs, err := ioutil.ReadFile(key)
+	bs, err := os.ReadFile(key)
 	if err != nil {
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-	if err := yaml.Unmarshal(bs, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return util.Unmarshal(p.StaticConfig, bs)
 }

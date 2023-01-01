@@ -2,7 +2,7 @@ package vault
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,11 +36,6 @@ type provider struct {
 	RoleId     string
 	SecretId   string
 	Version    string
-}
-
-type appRoleLogin struct {
-	RoleID   string `json:"role_id,omitempty"`
-	SecretID string `json:"secret_id,omitempty"`
 }
 
 func New(cfg api.StaticConfig) *provider {
@@ -117,7 +112,7 @@ func (p *provider) GetString(key string) (string, error) {
 func (p *provider) GetStringMap(key string) (map[string]interface{}, error) {
 	cli, err := p.ensureClient()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot create Vault Client: %v", err)
+		return nil, fmt.Errorf("cannot create Vault Client: %v", err)
 	}
 
 	mountPath, v2, err := isKVv2(key, cli)
@@ -177,7 +172,7 @@ func (p *provider) ensureClient() (*vault.Client, error) {
 		cli, err := vault.NewClient(cfg)
 		if err != nil {
 			p.debugf("Vault connections failed")
-			return nil, fmt.Errorf("Cannot create Vault Client: %v", err)
+			return nil, fmt.Errorf("cannot create Vault Client: %v", err)
 		}
 		if p.Namespace != "" {
 			cli.SetNamespace(p.Namespace)
@@ -244,11 +239,11 @@ func (p *provider) ensureClient() (*vault.Client, error) {
 			cli.SetToken(resp.Auth.ClientToken)
 		} else if p.AuthMethod == "kubernetes" {
 			fd, err := os.Open(kubernetesJwtTokenPath)
-			defer fd.Close()
 			if err != nil {
 				return nil, fmt.Errorf("unable to read file containing service account token: %w", err)
 			}
-			jwt, err := ioutil.ReadAll(fd)
+			defer fd.Close()
+			jwt, err := io.ReadAll(fd)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read file containing service account token: %w", err)
 			}
@@ -281,7 +276,7 @@ func (p *provider) ensureClient() (*vault.Client, error) {
 }
 
 func (p *provider) readTokenFile(path string) (string, error) {
-	buff, err := ioutil.ReadFile(path)
+	buff, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}

@@ -3,7 +3,7 @@ package s3
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -24,7 +24,7 @@ type mockedS3 struct {
 
 func Output(b string) *s3.GetObjectOutput {
 	return &s3.GetObjectOutput{
-		Body: ioutil.NopCloser(strings.NewReader(b)),
+		Body: io.NopCloser(strings.NewReader(b)),
 	}
 }
 
