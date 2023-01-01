@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/kroonprins/vals/pkg/config"
+	"github.com/kroonprins/vals/pkg/converters/noop"
+	"github.com/kroonprins/vals/pkg/converters/pkcs12"
 	"github.com/kroonprins/vals/pkg/providers/azuredevopsgit"
 	"github.com/kroonprins/vals/pkg/providers/googlesheets"
 	"github.com/kroonprins/vals/pkg/providers/s3"
@@ -79,6 +81,9 @@ const (
 	ProviderAzureKeyVault    = "azurekeyvault"
 	ProviderEnvSubst         = "envsubst"
 	ProviderAzureDevOpsGit   = "azuredevopsgit"
+
+	ConverterPkcs12ToCert = "pkcs12tocrt"
+	ConverterPkcs12ToKey  = "pkcs12tokey"
 )
 
 var (
@@ -91,9 +96,10 @@ type Evaluator interface {
 
 // Runtime an object for secrets rendering
 type Runtime struct {
-	providers map[string]api.Provider
-	docCache  *lru.Cache // secret documents are cached to improve performance
-	strCache  *lru.Cache // secrets are cached to improve performance
+	providers  map[string]api.Provider
+	converters map[string]api.Converter
+	docCache   *lru.Cache // secret documents are cached to improve performance
+	strCache   *lru.Cache // secrets are cached to improve performance
 
 	Options Options
 
@@ -107,8 +113,9 @@ func New(opts Options) (*Runtime, error) {
 		cacheSize = defaultCacheSize
 	}
 	r := &Runtime{
-		providers: map[string]api.Provider{},
-		Options:   opts,
+		providers:  map[string]api.Provider{},
+		converters: map[string]api.Converter{},
+		Options:    opts,
 	}
 	var err error
 	r.docCache, err = lru.New(cacheSize)
@@ -126,22 +133,28 @@ func New(opts Options) (*Runtime, error) {
 func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
+	providerQuery := func(uri *url.URL) url.Values {
+		res := map[string][]string{}
+		for key, params := range uri.Query() {
+			if len(params) > 0 && key != "converter" && !strings.HasPrefix(key, "converter-config-") {
+				res[key] = params
+			}
+		}
+		return res
+	}
+
 	uriToProviderHash := func(uri *url.URL) string {
 		bs := []byte{}
 		bs = append(bs, []byte(uri.Scheme)...)
-		query := uri.Query().Encode()
+		query := providerQuery(uri).Encode()
 		bs = append(bs, []byte(query)...)
 		return fmt.Sprintf("%x", md5.Sum(bs))
 	}
 
 	createProvider := func(scheme string, uri *url.URL) (api.Provider, error) {
-		query := uri.Query()
-
 		m := map[string]interface{}{}
-		for key, params := range query {
-			if len(params) > 0 {
-				m[key] = params[0]
-			}
+		for key, params := range providerQuery(uri) {
+			m[key] = params[0]
 		}
 
 		envFallback := func(k string) string {
@@ -247,6 +260,71 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 		return p, nil
 	}
 
+	converterConfigQuery := func(uri *url.URL) url.Values {
+		res := map[string][]string{}
+		for key, params := range uri.Query() {
+			if len(params) > 0 && strings.HasPrefix(key, "converter-config-") {
+				res[strings.TrimPrefix(key, "converter-config-")] = params
+			}
+		}
+		return res
+	}
+
+	uriToConverterHash := func(uri *url.URL) string {
+		bs := []byte{}
+		bs = append(bs, []byte(uri.Query().Get("converter"))...)
+		query := converterConfigQuery(uri).Encode()
+		bs = append(bs, []byte(query)...)
+		return fmt.Sprintf("%x", md5.Sum(bs))
+	}
+
+	createConverter := func(uri *url.URL) (api.Converter, error) {
+		query := uri.Query()
+
+		if !query.Has("converter") || query.Get("converter") == "" {
+			c := noop.New()
+			return c, nil
+		}
+		converter := query.Get("converter")
+
+		m := map[string]interface{}{}
+		for key, params := range converterConfigQuery(uri) {
+			m[key] = params[0]
+		}
+
+		envFallback := func(k string) string {
+			key := fmt.Sprintf("%s%s%s", EnvFallbackPrefix, "CONVERTER_CONFIG_", strings.ToUpper(k))
+			return os.Getenv(key)
+		}
+
+		conf := config.MapConfig{M: m, FallbackFunc: envFallback}
+
+		switch converter {
+		case ConverterPkcs12ToCert:
+			c := pkcs12.NewToCert(conf)
+			return c, nil
+		case ConverterPkcs12ToKey:
+			c := pkcs12.NewToKey(conf)
+			return c, nil
+		}
+		return nil, fmt.Errorf("no converter registered for %q", converter)
+	}
+
+	updateConverters := func(uri *url.URL, hash string) (api.Converter, error) {
+		r.m.Lock()
+		defer r.m.Unlock()
+		c, ok := r.converters[hash]
+		if !ok {
+			c, err = createConverter(uri)
+			if err != nil {
+				return nil, err
+			}
+
+			r.converters[hash] = c
+		}
+		return c, nil
+	}
+
 	var only []string
 	if r.Options.ExcludeSecret {
 		only = []string{"ref"}
@@ -265,10 +343,14 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 				return "", err
 			}
 
-			hash := uriToProviderHash(uri)
+			providerHash := uriToProviderHash(uri)
+			p, err := updateProviders(uri, providerHash)
+			if err != nil {
+				return "", err
+			}
 
-			p, err := updateProviders(uri, hash)
-
+			converterHash := uriToConverterHash(uri)
+			c, err := updateConverters(uri, converterHash)
 			if err != nil {
 				return "", err
 			}
@@ -313,6 +395,10 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 					}
 				} else {
 					str, err = p.GetString(path)
+					if err != nil {
+						return "", err
+					}
+					str, err = c.Convert(str)
 					if err != nil {
 						return "", err
 					}

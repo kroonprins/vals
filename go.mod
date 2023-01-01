@@ -21,6 +21,7 @@ require (
 	google.golang.org/api v0.95.0
 	google.golang.org/genproto v0.0.0-20220930163606-c98284e70a91
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	software.sslmate.com/src/go-pkcs12 v0.2.0
 )
 
 require (

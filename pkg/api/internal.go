@@ -75,3 +75,11 @@ type Merger interface {
 	Merge(map[string]interface{}, map[string]interface{}) (map[string]interface{}, error)
 	IgnorePrefix() string
 }
+
+type StringConverter interface {
+	Convert(string) (string, error)
+}
+
+type Converter interface {
+	StringConverter
+}
