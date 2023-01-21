@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/kroonprins/vals/pkg/config"
+	"github.com/kroonprins/vals/pkg/converters/base64"
 	"github.com/kroonprins/vals/pkg/converters/noop"
 	"github.com/kroonprins/vals/pkg/converters/pkcs12"
 	"github.com/kroonprins/vals/pkg/providers/azuredevopsgit"
@@ -84,6 +85,8 @@ const (
 
 	ConverterPkcs12ToCert = "pkcs12tocrt"
 	ConverterPkcs12ToKey  = "pkcs12tokey"
+	ConverterBase64Decode = "base64decode"
+	ConverterBase64Encode = "base64encode"
 )
 
 var (
@@ -306,7 +309,14 @@ func (r *Runtime) Eval(template map[string]interface{}) (map[string]interface{},
 		case ConverterPkcs12ToKey:
 			c := pkcs12.NewToKey(conf)
 			return c, nil
+		case ConverterBase64Decode:
+			c := base64.NewBase64Decode()
+			return c, nil
+		case ConverterBase64Encode:
+			c := base64.NewBase64Encode()
+			return c, nil
 		}
+
 		return nil, fmt.Errorf("no converter registered for %q", converter)
 	}
 
